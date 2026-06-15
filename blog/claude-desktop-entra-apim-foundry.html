@@ -124,7 +124,7 @@
   <li><strong>No shared API keys</strong> floating around on developer laptops.</li>
   <li><strong>Per-user identity</strong> — every request must be attributable to a real person.</li>
   <li><strong>MFA and Conditional Access</strong> must apply, the same way they do for every other internal app.</li>
-  <li><strong>Central rate-limiting and logging</strong> — one chokepoint we can govern.</li>
+  <li><strong>Central rate-limiting and logging</strong> — a centralized control plane for governance.</li>
 </ol>
 
 <p>Claude Desktop 1.5+ supports a "Gateway SSO" mode where it can sign each user in with OpenID Connect and forward their token to a custom LLM gateway. Azure API Management (APIM) is a perfect fit for that gateway role: it validates the user's Entra ID token, then re-authenticates itself to Foundry behind the scenes.</p>
