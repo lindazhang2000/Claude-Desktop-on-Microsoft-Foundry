@@ -347,10 +347,13 @@ A few errors that cost me a few minutes each — sharing so you can skip them:
 
 ## Where this leaves us
 
-- Every Claude Desktop user authenticates against **Entra ID** in their browser, just like Office or Teams. MFA and Conditional Access policies apply automatically.
-- The **Foundry API key** lives only inside APIM as a secret Named value. It's never on a developer laptop.
-- APIM logs carry the user's Entra `oid` claim, which I'll use next to build per-user dashboards and token-bucket quotas (`llm-token-limit` keyed off `oid`).
-- If we ever want to remove the API key entirely, the same setup switches to APIM **system-assigned managed identity** with `<authentication-managed-identity resource="https://cognitiveservices.azure.com" />` plus a single RBAC assignment on the Foundry account: the **Foundry User** role (role ID `53ca6127-db72-4b80-b1b0-d745d6d5456d`, formerly *Azure AI User*). See the [Foundry RBAC doc](https://learn.microsoft.com/en-us/azure/foundry/concepts/rbac-foundry?tabs=owner) — don't use any `Cognitive Services *` roles for Foundry. For now the key model is fine.
+This pattern is small in moving parts but has outsized architectural impact:
+
+- **Zero secrets on endpoints.** Eliminates API-key sprawl across laptops, MDM profiles, and shared vaults. The Foundry key lives only inside APIM — or disappears entirely when you switch APIM to managed identity.
+- **Identity, not credentials.** Every Claude Desktop user authenticates against **Entra ID** in their browser, the same as Office or Teams. MFA, Conditional Access, and Entra ID Protection apply automatically — no parallel auth story to maintain.
+- **Per-user observability built in.** APIM logs carry the user's Entra `oid`, `email`, and group claims. That unlocks per-user dashboards, cost allocation, and abuse detection without any client-side instrumentation.
+- **Aligned with Zero Trust.** Strong identity at the edge, no implicit trust between hops, single policy chokepoint for inspection and rate-limiting, and full revocability through a single Enterprise Application.
+- **Optional but trivial keyless path.** Flip APIM to **system-assigned managed identity** + `<authentication-managed-identity resource="https://cognitiveservices.azure.com" />` and one **Foundry User** role assignment (role ID `53ca6127-db72-4b80-b1b0-d745d6d5456d`, formerly *Azure AI User*) on the Foundry account. See the [Foundry RBAC doc](https://learn.microsoft.com/en-us/azure/foundry/concepts/rbac-foundry?tabs=owner) — don't use any `Cognitive Services *` roles for Foundry.
 
 ---
 
