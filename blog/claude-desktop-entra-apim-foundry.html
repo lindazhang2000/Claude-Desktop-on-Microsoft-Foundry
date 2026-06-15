@@ -105,6 +105,10 @@
 
 <img class="hero" src="images/desktop%20chat.png" alt="Claude Desktop chatting against the enterprise gateway, with the model picker showing the Foundry deployment" />
 
+<blockquote>
+  <p><strong>Why this post exists:</strong> Microsoft Learn's <a href="https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/configure-claude-desktop">Configure Claude Desktop with Foundry Models</a> only shows the <strong>API-key</strong> path — a shared key pasted into every user's Claude Desktop config. That's fine for a quick demo, but it's a non-starter for most enterprises (no per-user identity, no MFA / Conditional Access, hard to revoke, hard to audit). This post fills that gap: same Foundry backend, but with <strong>Microsoft Entra ID SSO</strong> in front via Azure API Management, so each user signs in with their corporate identity and zero secrets land on the laptop.</p>
+</blockquote>
+
 <hr />
 
 <h2>The problem</h2>
