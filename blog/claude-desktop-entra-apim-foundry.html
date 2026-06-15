@@ -203,7 +203,7 @@ Response back to the user</code></pre>
 <hr />
 
 <h2>Step 1 — Register an Entra ID app for Claude Desktop</h2>
-<p>This is the OIDC client Claude Desktop signs users into. The Anthropic docs are very specific about the shape it must take: single-tenant, <strong>public PKCE client</strong> (no client secret), and a redirect URI registered under the <strong>Mobile and desktop applications</strong> platform (the only platform Entra allows to use any loopback port).</p>
+<p>This is the OIDC client Claude Desktop signs users into. Claude Desktop requires a single-tenant, <strong>public PKCE client</strong> (no client secret) with a loopback redirect URI, configured under the <strong>Mobile and desktop applications</strong> platform in Entra ID — the only platform that allows any loopback port.</p>
 <p>I scripted it so the setup is one command and idempotent:</p>
 
 <pre><code># scripts/register-claude-entra-app.ps1
