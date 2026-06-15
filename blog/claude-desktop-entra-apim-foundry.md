@@ -343,7 +343,7 @@ That confirms both halves of the chain.
 
 ## Bumps I hit along the way
 
-A few errors that cost me a few minutes each — sharing so you can skip them:
+A few common issues encountered during setup — sharing so you can skip them:
 
 | Symptom | Cause | Fix |
 |---|---|---|
