@@ -68,7 +68,7 @@ There are no API keys on user devices. Foundry's key lives only inside APIM. And
 
 ## What you need before starting
 
-- An **Azure subscription** with an **Azure AI Foundry** (AI Services) account and a Claude deployment. *(Throughout this post I'll just call it **Foundry**.)*
+- An **Azure subscription** with a **Microsoft Foundry** (AI Services) account and a Claude deployment. *(Throughout this post I'll just call it **Foundry**.)*
 - An **API Management** instance, any tier.
 - Permission to **register applications in Entra ID** for your tenant.
 - **Claude Desktop 1.5.0 or later**.
