@@ -24,7 +24,8 @@ Claude Desktop 1.5+ supports a "Gateway SSO" mode where it can sign each user in
 The end-to-end flow looks like this:
 
 ```mermaid
-flowchart LR
+%%{init: {'flowchart': {'nodeSpacing': 60, 'rankSpacing': 80, 'useMaxWidth': true}, 'themeVariables': {'fontSize':'16px'}} }%%
+flowchart TB
     User([👤 Corporate user])
     Claude["🖥️ Claude Desktop"]
     Entra["🔑 Microsoft Entra ID<br/>(OIDC + MFA + Conditional Access)"]
