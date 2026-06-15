@@ -351,6 +351,8 @@ az apim nv create -g $ResourceGroup --service-name $ApimName `
   <li>The <code>Authorization</code> header from the user is <strong>not forwarded</strong> — once <code>validate-jwt</code> succeeds, the request is re-authenticated to Foundry with <code>x-api-key</code>. No user token ever leaves APIM.</li>
 </ul>
 
+<p><strong>APIM becomes the security boundary</strong> — user identity is validated at the edge, and downstream services never see or rely on user tokens.</p>
+
 <img src="images/04-policy-editor.png" alt="APIM inbound policy editor showing the validate-jwt block followed by set-backend-service and x-api-key injection" />
 
 <hr />

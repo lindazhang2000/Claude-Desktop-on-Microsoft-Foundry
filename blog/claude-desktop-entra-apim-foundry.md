@@ -236,6 +236,8 @@ Two things to notice:
 - `validate-jwt` uses the **OIDC discovery URL** — JWKS keys are fetched and cached automatically. It rejects any token whose `aud` claim is not the client ID of our Entra app, which is exactly what we want.
 - The `Authorization` header from the user is **not forwarded** — once `validate-jwt` succeeds, the request is re-authenticated to Foundry with `x-api-key`. No user token ever leaves APIM.
 
+**APIM becomes the security boundary** — user identity is validated at the edge, and downstream services never see or rely on user tokens.
+
 ![APIM inbound policy editor showing the validate-jwt block followed by set-backend-service and x-api-key injection](images/04-policy-editor.png)
 
 ---
