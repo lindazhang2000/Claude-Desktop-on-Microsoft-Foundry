@@ -10,6 +10,8 @@
 
 ## The problem
 
+For many teams experimenting with Claude Desktop, the blocker isn't capability — it's **enterprise readiness**. How do you enforce identity, eliminate shared secrets, and apply governance without standing up a custom backend service to sit in front of the model?
+
 If your team wants to use **Claude Desktop** with your own Anthropic deployment running on **Microsoft Foundry**, but with a few non-negotiable requirements:
 
 1. **No shared API keys** floating around on developer laptops.
