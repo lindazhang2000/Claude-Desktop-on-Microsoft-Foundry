@@ -23,6 +23,30 @@ Claude Desktop 1.5+ supports a "Gateway SSO" mode where it can sign each user in
 
 The end-to-end flow looks like this:
 
+```mermaid
+flowchart LR
+    User([👤 Corporate user])
+    Claude["🖥️ Claude Desktop"]
+    Entra["🔑 Microsoft Entra ID<br/>(OIDC + MFA + Conditional Access)"]
+    APIM["🛡️ Azure API Management<br/>validate-jwt → rewrite headers<br/>(policy gateway)"]
+    Foundry["🧠 Microsoft Foundry<br/>Claude deployment"]
+
+    User -- "1️⃣ Sign in (browser PKCE)" --> Entra
+    Entra -- "2️⃣ ID token" --> Claude
+    Claude -- "3️⃣ POST /v1/messages<br/>Authorization: Bearer &lt;ID token&gt;" --> APIM
+    APIM -- "4️⃣ OIDC discovery / JWKS" --> Entra
+    APIM -- "5️⃣ x-api-key (or Managed Identity)" --> Foundry
+    Foundry -- "6️⃣ Response" --> APIM
+    APIM -- "7️⃣ Response" --> Claude
+
+    classDef azure fill:#0a4d8c,stroke:#0a3a6b,color:#ffffff;
+    classDef client fill:#f3f3f3,stroke:#888,color:#222;
+    class Entra,APIM,Foundry azure;
+    class Claude,User client;
+```
+
+Or in plain text:
+
 ```
 Claude Desktop
    │  Authorization: Bearer <Entra ID token from the user's browser sign-in>
@@ -168,7 +192,7 @@ This is the only place the key ever lives. Clients never see it.
 
 ## Step 4 — Write the gateway policy
 
-This is the heart of the whole setup. Open APIs → **anthropicapi → All operations → Inbound processing → </>** and paste:
+This is the core enforcement layer in the architecture. Open APIs → **anthropicapi → All operations → Inbound processing → </>** and paste:
 
 ```xml
 <policies>

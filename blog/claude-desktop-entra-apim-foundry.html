@@ -95,7 +95,13 @@
   tr:nth-child(even) td { background: var(--table-stripe); }
   .meta { color: var(--fg-muted); font-size: 0.9em; margin-top: -0.5em; margin-bottom: 1.5em; }
   .hero { margin-top: 1.5em; }
+  .mermaid { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 6px; padding: 16px; margin: 1.4em 0; text-align: center; }
 </style>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  mermaid.initialize({ startOnLoad: true, theme: dark ? 'dark' : 'default', securityLevel: 'loose' });
+</script>
 </head>
 <body>
 <article class="container">
@@ -124,6 +130,30 @@
 <p>Claude Desktop 1.5+ supports a "Gateway SSO" mode where it can sign each user in with OpenID Connect and forward their token to a custom LLM gateway. Azure API Management (APIM) is a perfect fit for that gateway role: it validates the user's Entra ID token, then re-authenticates itself to Foundry behind the scenes.</p>
 
 <p>The end-to-end flow looks like this:</p>
+
+<div class="mermaid">
+flowchart LR
+    User([Corporate user])
+    Claude["Claude Desktop"]
+    Entra["Microsoft Entra ID&lt;br/&gt;(OIDC + MFA + Conditional Access)"]
+    APIM["Azure API Management&lt;br/&gt;validate-jwt &#8594; rewrite headers&lt;br/&gt;(policy gateway)"]
+    Foundry["Microsoft Foundry&lt;br/&gt;Claude deployment"]
+
+    User -- "1. Sign in (browser PKCE)" --&gt; Entra
+    Entra -- "2. ID token" --&gt; Claude
+    Claude -- "3. POST /v1/messages&lt;br/&gt;Authorization: Bearer ID token" --&gt; APIM
+    APIM -- "4. OIDC discovery / JWKS" --&gt; Entra
+    APIM -- "5. x-api-key (or Managed Identity)" --&gt; Foundry
+    Foundry -- "6. Response" --&gt; APIM
+    APIM -- "7. Response" --&gt; Claude
+
+    classDef azure fill:#0a4d8c,stroke:#0a3a6b,color:#ffffff;
+    classDef client fill:#f3f3f3,stroke:#888,color:#222;
+    class Entra,APIM,Foundry azure;
+    class Claude,User client;
+</div>
+
+<p>Or in plain text:</p>
 
 <pre><code>Claude Desktop
    │  Authorization: Bearer &lt;Entra ID token from the user's browser sign-in&gt;
@@ -269,7 +299,7 @@ az apim nv create -g $ResourceGroup --service-name $ApimName `
 <hr />
 
 <h2>Step 4 — Write the gateway policy</h2>
-<p>This is the heart of the whole setup. Open APIs → <strong>anthropicapi → All operations → Inbound processing → &lt;/&gt;</strong> and paste:</p>
+<p>This is the core enforcement layer in the architecture. Open APIs → <strong>anthropicapi → All operations → Inbound processing → &lt;/&gt;</strong> and paste:</p>
 
 <pre><code>&lt;policies&gt;
   &lt;inbound&gt;
