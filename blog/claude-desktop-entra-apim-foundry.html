@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bringing Claude Desktop to Your Enterprise with Entra ID SSO, Azure API Management, and Microsoft Foundry</title>
+<meta name="description" content="How to put corporate sign-in in front of Claude Desktop using Entra ID, Azure API Management, and a Claude deployment on Microsoft Foundry — no backend code required." />
+<style>
+  :root {
+    --fg: #1f2328;
+    --fg-muted: #57606a;
+    --bg: #ffffff;
+    --bg-soft: #f6f8fa;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --code-bg: #f6f8fa;
+    --code-fg: #1f2328;
+    --quote-bar: #d0d7de;
+    --table-stripe: #f6f8fa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fg: #e6edf3;
+      --fg-muted: #9198a1;
+      --bg: #0d1117;
+      --bg-soft: #161b22;
+      --border: #30363d;
+      --accent: #4493f8;
+      --code-bg: #161b22;
+      --code-fg: #e6edf3;
+      --quote-bar: #30363d;
+      --table-stripe: #161b22;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    font-size: 17px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 820px; margin: 0 auto; padding: 48px 24px 96px; }
+  h1, h2, h3 { line-height: 1.25; font-weight: 600; }
+  h1 { font-size: 2.1rem; margin: 0 0 0.4em; letter-spacing: -0.01em; }
+  h2 { font-size: 1.5rem; margin: 2.2em 0 0.6em; padding-bottom: 0.3em; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.2rem; margin: 1.6em 0 0.5em; }
+  p { margin: 0 0 1em; }
+  em.lede { color: var(--fg-muted); font-style: italic; font-size: 1.1rem; display: block; margin-bottom: 1.5em; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  ul, ol { padding-left: 1.6em; margin: 0 0 1em; }
+  li { margin-bottom: 0.3em; }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 2.4em 0; }
+  img { max-width: 100%; height: auto; display: block; margin: 1.4em auto; border: 1px solid var(--border); border-radius: 6px; }
+  blockquote {
+    margin: 1.2em 0;
+    padding: 0.4em 1em;
+    color: var(--fg-muted);
+    border-left: 4px solid var(--quote-bar);
+    background: var(--bg-soft);
+    border-radius: 0 6px 6px 0;
+  }
+  code {
+    background: var(--code-bg);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    font-family: "SF Mono", "Cascadia Code", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.92em;
+  }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    font-size: 0.9em;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; font-size: 1em; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.2em 0;
+    font-size: 0.95em;
+  }
+  th, td {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--bg-soft); font-weight: 600; }
+  tr:nth-child(even) td { background: var(--table-stripe); }
+  .meta { color: var(--fg-muted); font-size: 0.9em; margin-top: -0.5em; margin-bottom: 1.5em; }
+  .hero { margin-top: 1.5em; }
+</style>
+</head>
+<body>
+<article class="container">
+
+<h1>Bringing Claude Desktop to Your Enterprise with Entra ID SSO, Azure API Management, and Microsoft Foundry</h1>
+<em class="lede">How I put corporate sign-in in front of Claude Desktop without writing a single line of backend code.</em>
+
+<img class="hero" src="images/desktop%20chat.png" alt="Claude Desktop chatting against the enterprise gateway, with the model picker showing the Foundry deployment" />
+
+<hr />
+
+<h2>The problem</h2>
+<p>If your team wants to use <strong>Claude Desktop</strong> with your own Anthropic deployment running on <strong>Microsoft Foundry</strong>, but with a few non-negotiable requirements:</p>
+<ol>
+  <li><strong>No shared API keys</strong> floating around on developer laptops.</li>
+  <li><strong>Per-user identity</strong> — every request must be attributable to a real person.</li>
+  <li><strong>MFA and Conditional Access</strong> must apply, the same way they do for every other internal app.</li>
+  <li><strong>Central rate-limiting and logging</strong> — one chokepoint we can govern.</li>
+</ol>
+
+<p>Claude Desktop 1.5+ supports a "Gateway SSO" mode where it can sign each user in with OpenID Connect and forward their token to a custom LLM gateway. Azure API Management (APIM) is a perfect fit for that gateway role: it validates the user's Entra ID token, then re-authenticates itself to Foundry behind the scenes.</p>
+
+<p>The end-to-end flow looks like this:</p>
+
+<pre><code>Claude Desktop
+   │  Authorization: Bearer &lt;Entra ID token from the user's browser sign-in&gt;
+   ▼
+Azure API Management  (&lt;your-apim&gt;)
+   │  ① validate-jwt   → verifies user's Entra ID token
+   │  ② re-auths to Foundry with an API key from a Named value
+   │  Authorization stripped, x-api-key injected
+   ▼
+Microsoft Foundry  /anthropic/v1/messages
+   │  runs Claude (&lt;your-deployment&gt;)
+   ▼
+Response back to the user</code></pre>
+
+<p>There are no API keys on user devices. Foundry's key lives only inside APIM. And every request carries the user's <code>oid</code> claim, so I can build dashboards and per-user quotas later.</p>
+
+<hr />
+
+<h2>What you need before starting</h2>
+<ul>
+  <li>An <strong>Azure subscription</strong> with a Foundry / AI Services account and a Claude deployment.</li>
+  <li>An <strong>API Management</strong> instance, any tier.</li>
+  <li>Permission to <strong>register applications in Entra ID</strong> for your tenant.</li>
+  <li><strong>Claude Desktop 1.5.0 or later</strong>.</li>
+  <li>Azure CLI installed locally.</li>
+</ul>
+<p>Throughout this post I'll use placeholders for resource names:</p>
+<ul>
+  <li><code>&lt;apim-name&gt;</code> — your API Management service name</li>
+  <li><code>&lt;resource-group&gt;</code> — the resource group that holds it</li>
+  <li><code>&lt;foundry-account&gt;</code> — your Foundry / AI Services account name</li>
+  <li><code>&lt;deployment-name&gt;</code> — the name of the Claude model deployment on Foundry</li>
+</ul>
+
+<hr />
+
+<h2>Step 1 — Register an Entra ID app for Claude Desktop</h2>
+<p>This is the OIDC client Claude Desktop signs users into. The Anthropic docs are very specific about the shape it must take: single-tenant, <strong>public PKCE client</strong> (no client secret), and a redirect URI registered under the <strong>Mobile and desktop applications</strong> platform (the only platform Entra allows to use any loopback port).</p>
+<p>I scripted it so the setup is one command and idempotent:</p>
+
+<pre><code># scripts/register-claude-entra-app.ps1
+[CmdletBinding()]
+param(
+  [string] $TenantId       = '&lt;your-tenant-id&gt;',
+  [string] $SubscriptionId = '&lt;your-subscription-id&gt;',
+  [string] $ResourceGroup  = '&lt;resource-group&gt;',
+  [string] $ApimName       = '&lt;apim-name&gt;',
+  [string] $AppDisplayName = 'Claude Cowork gateway',
+  [string] $RedirectUri    = 'http://127.0.0.1/callback'
+)
+
+az account set --subscription $SubscriptionId | Out-Null
+
+# 1. Create (or reuse) the app registration
+$appId = az ad app list --display-name $AppDisplayName --query "[0].appId" -o tsv
+if (-not $appId) {
+  $appId = az ad app create --display-name $AppDisplayName `
+            --sign-in-audience AzureADMyOrg --query appId -o tsv
+}
+
+# 2. Configure as public PKCE client with the Mobile/Desktop redirect URI
+$objectId = az ad app show --id $appId --query id -o tsv
+$patch = @{
+  publicClient = @{ redirectUris = @($RedirectUri) }
+  isFallbackPublicClient = $true
+} | ConvertTo-Json -Depth 5 -Compress
+az rest --method PATCH `
+        --uri "https://graph.microsoft.com/v1.0/applications/$objectId" `
+        --headers "Content-Type=application/json" --body $patch | Out-Null
+
+# 3. Ensure a service principal exists
+$sp = az ad sp list --filter "appId eq '$appId'" --query "[0].id" -o tsv
+if (-not $sp) { az ad sp create --id $appId | Out-Null }
+
+# 4. Push two Named values into APIM for the validate-jwt policy
+az apim nv create -g $ResourceGroup --service-name $ApimName `
+  --named-value-id entra-tenant-id --display-name entra-tenant-id `
+  --value $TenantId --secret false
+az apim nv create -g $ResourceGroup --service-name $ApimName `
+  --named-value-id entra-client-id --display-name entra-client-id `
+  --value $appId --secret false
+
+"Client ID: $appId"</code></pre>
+
+<p>Run it once. The output prints the <strong>client ID</strong> you'll need in Claude Desktop later, and it leaves two <strong>Named values</strong> in APIM (<code>entra-tenant-id</code>, <code>entra-client-id</code>) that the gateway policy will reference.</p>
+
+<img src="images/01-entra-app-registration.png" alt="Entra ID app registration with the Mobile and desktop applications platform configured and the http://127.0.0.1/callback redirect URI" />
+
+<blockquote>
+⚠️ Common pitfall: if the redirect URI ends up under the <strong>Web</strong> platform instead of <strong>Mobile and desktop applications</strong>, Entra will demand a client secret on token exchange — Claude won't send one and you'll get <code>Token exchange failed (HTTP 401)</code>. The app type can't be changed after creation, so create a new app if that happens.
+</blockquote>
+
+<hr />
+
+<h2>Step 2 — Create the API in APIM</h2>
+<p>In the portal under <strong>APIM → APIs → + Add API → HTTP</strong>:</p>
+
+<table>
+  <thead><tr><th>Field</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td>Display name</td><td>Anthropic API</td></tr>
+    <tr><td>Name</td><td><code>anthropicapi</code></td></tr>
+    <tr><td>Web service URL</td><td><code>https://&lt;foundry-account&gt;.services.ai.azure.com/anthropic</code></td></tr>
+    <tr><td>API URL suffix</td><td><code>claude</code></td></tr>
+    <tr><td>Subscription required</td><td><strong>Off</strong> (Entra ID is our only credential)</td></tr>
+  </tbody>
+</table>
+
+<p>Add two operations under it:</p>
+
+<table>
+  <thead><tr><th>Method</th><th>URL</th><th>Display name</th></tr></thead>
+  <tbody>
+    <tr><td>POST</td><td><code>/v1/messages</code></td><td>Create message</td></tr>
+    <tr><td>GET</td><td><code>/v1/models</code></td><td>List models</td></tr>
+  </tbody>
+</table>
+
+<p>The <code>/v1/models</code> operation isn't strictly needed (Foundry's Anthropic surface doesn't implement it), but having it registered means you can decide later whether to stub it out or proxy it.</p>
+
+<img src="images/02-apim-add-api.png" alt="APIM API with POST /v1/messages and GET /v1/models operations" />
+
+<hr />
+
+<h2>Step 3 — Add an API key for Foundry as a Named value</h2>
+<p>APIM → <strong>Named values → + Add</strong>:</p>
+<ul>
+  <li>Name: <code>foundry-key</code></li>
+  <li>Type: <strong>Secret</strong></li>
+  <li>Value: paste a key from the Foundry account's <em>Keys and Endpoint</em> blade.</li>
+</ul>
+<p>This is the only place the key ever lives. Clients never see it.</p>
+
+<hr />
+
+<h2>Step 4 — Write the gateway policy</h2>
+<p>This is the heart of the whole setup. Open APIs → <strong>anthropicapi → All operations → Inbound processing → &lt;/&gt;</strong> and paste:</p>
+
+<pre><code>&lt;policies&gt;
+  &lt;inbound&gt;
+    &lt;base /&gt;
+
+    &lt;!-- USER → APIM: verify Entra ID token from Claude Desktop --&gt;
+    &lt;validate-jwt header-name="Authorization"
+                  failed-validation-httpcode="401"
+                  failed-validation-error-message="Unauthorized"
+                  require-scheme="Bearer"&gt;
+      &lt;openid-config url="https://login.microsoftonline.com/{{entra-tenant-id}}/v2.0/.well-known/openid-configuration" /&gt;
+      &lt;audiences&gt;
+        &lt;audience&gt;{{entra-client-id}}&lt;/audience&gt;
+      &lt;/audiences&gt;
+      &lt;issuers&gt;
+        &lt;issuer&gt;https://login.microsoftonline.com/{{entra-tenant-id}}/v2.0&lt;/issuer&gt;
+      &lt;/issuers&gt;
+    &lt;/validate-jwt&gt;
+
+    &lt;!-- APIM → Foundry --&gt;
+    &lt;set-backend-service base-url="https://&lt;foundry-account&gt;.services.ai.azure.com/anthropic" /&gt;
+    &lt;set-header name="x-api-key" exists-action="override"&gt;
+      &lt;value&gt;{{foundry-key}}&lt;/value&gt;
+    &lt;/set-header&gt;
+    &lt;set-query-parameter name="api-version" exists-action="skip"&gt;
+      &lt;value&gt;2024-05-01-preview&lt;/value&gt;
+    &lt;/set-query-parameter&gt;
+  &lt;/inbound&gt;
+  &lt;backend&gt;&lt;base /&gt;&lt;/backend&gt;
+  &lt;outbound&gt;&lt;base /&gt;&lt;/outbound&gt;
+  &lt;on-error&gt;&lt;base /&gt;&lt;/on-error&gt;
+&lt;/policies&gt;</code></pre>
+
+<p>Two things to notice:</p>
+<ul>
+  <li><code>validate-jwt</code> uses the <strong>OIDC discovery URL</strong> — JWKS keys are fetched and cached automatically. It rejects any token whose <code>aud</code> claim is not the client ID of our Entra app, which is exactly what we want.</li>
+  <li>The <code>Authorization</code> header from the user is <strong>not forwarded</strong> — once <code>validate-jwt</code> succeeds, the request is re-authenticated to Foundry with <code>x-api-key</code>. No user token ever leaves APIM.</li>
+</ul>
+
+<img src="images/04-policy-editor.png" alt="APIM inbound policy editor showing the validate-jwt block followed by set-backend-service and x-api-key injection" />
+
+<hr />
+
+<h2>Step 5 — Configure Claude Desktop</h2>
+<p>Open Claude Desktop → <strong>Configure third-party inference</strong> and fill it in like this:</p>
+
+<table>
+  <thead><tr><th>Field</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td>Connection</td><td>Gateway</td></tr>
+    <tr><td>Credential kind</td><td>Interactive sign-in</td></tr>
+    <tr><td>Gateway base URL</td><td><code>https://&lt;apim-name&gt;.azure-api.net/claude</code></td></tr>
+    <tr><td>Client ID</td><td>(the appId your script printed)</td></tr>
+    <tr><td>Issuer URL</td><td><code>https://login.microsoftonline.com/&lt;tenant-id&gt;/v2.0</code></td></tr>
+    <tr><td>Authorization URL / Token URL</td><td>leave empty</td></tr>
+    <tr><td>Bearer token</td><td>ID token (default)</td></tr>
+    <tr><td>Scopes</td><td>leave default (<code>openid profile email offline_access</code>)</td></tr>
+    <tr><td>Redirect port</td><td>leave empty (ephemeral)</td></tr>
+    <tr><td>Model discovery</td><td><strong>Off</strong></td></tr>
+    <tr><td>Model list → Model ID</td><td><code>&lt;deployment-name&gt;</code> (your Foundry deployment name)</td></tr>
+  </tbody>
+</table>
+
+<blockquote>
+<p>ℹ️ <strong>Why Model discovery is Off</strong> — Claude Desktop's discovery uses <code>GET /v1/models</code>, and the Foundry <code>/anthropic</code> surface doesn't implement that endpoint, so it 404s. Listing the model manually skips the call entirely.</p>
+<p><strong>If you want to leave Model discovery On</strong>, stub <code>/v1/models</code> in APIM. Add a <code>GET /v1/models</code> operation to your API and give it this inbound policy that returns an Anthropic-shaped response without ever hitting the backend:</p>
+<pre><code>&lt;policies&gt;
+  &lt;inbound&gt;
+    &lt;base /&gt;
+    &lt;return-response&gt;
+      &lt;set-status code="200" reason="OK" /&gt;
+      &lt;set-header name="Content-Type" exists-action="override"&gt;
+        &lt;value&gt;application/json&lt;/value&gt;
+      &lt;/set-header&gt;
+      &lt;set-body&gt;@{
+        return new JObject(
+          new JProperty("data", new JArray(
+            new JObject(
+              new JProperty("id", "&lt;deployment-name&gt;"),
+              new JProperty("type", "model"),
+              new JProperty("display_name", "Claude on Foundry"),
+              new JProperty("created_at", "2026-01-01T00:00:00Z")
+            )
+          )),
+          new JProperty("has_more", false),
+          new JProperty("first_id", "&lt;deployment-name&gt;"),
+          new JProperty("last_id",  "&lt;deployment-name&gt;")
+        ).ToString();
+      }&lt;/set-body&gt;
+    &lt;/return-response&gt;
+  &lt;/inbound&gt;
+  &lt;backend&gt;&lt;base /&gt;&lt;/backend&gt;
+  &lt;outbound&gt;&lt;base /&gt;&lt;/outbound&gt;
+  &lt;on-error&gt;&lt;base /&gt;&lt;/on-error&gt;
+&lt;/policies&gt;</code></pre>
+<p>Add one entry per deployment you want to expose. The benefit of stubbing rather than turning discovery off is that adding new models becomes a policy edit — no need to re-export and redeploy Claude Desktop config to every user.</p>
+</blockquote>
+
+<img src="images/05-claude-desktop-config.png" alt="Claude Desktop Configure third-party inference panel with Gateway, Interactive sign-in, gateway base URL, client ID and issuer URL filled in" />
+
+<p>Click <strong>Apply Changes</strong> then <strong>Sign in to your organization</strong>. Your browser opens to the normal Entra sign-in page; once approved you're returned to the app, and a quick connection test runs.</p>
+
+<p>The success indicator is a small green banner:</p>
+<blockquote>✅ Inference — 1-token completion in 1449 ms · <strong>via identity provider</strong></blockquote>
+
+<img src="images/07-success-banner.png" alt="Green success banner in Claude Desktop reading 'Inference — 1-token completion … via identity provider'" />
+
+<p>For broader rollout, hit the <strong>Export</strong> button at the top of the configuration window — it produces a <code>.mobileconfig</code> (macOS) or <code>.reg</code> (Windows) you can push via Intune / Jamf to every user's machine.</p>
+
+<hr />
+
+<h2>Step 6 — Verify both hops</h2>
+<p>In APIM → <strong>APIs → anthropicapi → Test → POST /v1/messages</strong> I sent:</p>
+
+<pre><code>Headers:
+  anthropic-version: 2023-06-01
+Body:
+  { "model": "&lt;deployment-name&gt;", "max_tokens": 64,
+    "messages": [{"role":"user","content":"hi"}] }</code></pre>
+
+<p>Click <strong>Send → Trace</strong>, and look at two places:</p>
+<ul>
+  <li><strong>Inbound → validate-jwt</strong>: should say <code>succeeded</code> and show the decoded claims (your <code>oid</code>, <code>email</code>, etc.).</li>
+  <li><strong>Backend → Request</strong>: outbound URL is <code>https://&lt;foundry-account&gt;.services.ai.azure.com/anthropic/v1/messages?api-version=2024-05-01-preview</code>, with <code>x-api-key: ****</code> present and <code>Authorization</code> absent.</li>
+  <li><strong>Backend → Response</strong>: 200, with a Claude message JSON body.</li>
+</ul>
+<p>That confirms both halves of the chain.</p>
+
+<img src="images/06-apim-test-trac.png" alt="APIM Test console showing a 200 response from Foundry with the Claude message JSON body" />
+
+<hr />
+
+<h2>Bumps I hit along the way</h2>
+<p>A few errors that cost me a few minutes each — sharing so you can skip them:</p>
+
+<table>
+  <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Claude shows <em>"Your provider's model list hasn't loaded yet"</em> and <code>/v1/models</code> returns 404</td>
+      <td>Foundry's Anthropic surface doesn't implement that endpoint</td>
+      <td>Turn <strong>Model discovery OFF</strong> in Claude Desktop and add the deployment name manually</td>
+    </tr>
+    <tr>
+      <td>Claude shows <em>"Authentication failed"</em> even though sign-in worked</td>
+      <td>The APIM API still had <strong>Subscription required = ON</strong>, blocking the call before <code>validate-jwt</code> ran with <code>401: Access denied due to missing subscription key</code></td>
+      <td>Uncheck <strong>Subscription required</strong> on the API</td>
+    </tr>
+    <tr>
+      <td>Portal Test panel shows <em>"Cannot read properties of undefined (reading 'statusCode')"</em></td>
+      <td>The test console doesn't attach an Entra token, so <code>validate-jwt</code> 401s and the panel's JavaScript crashes</td>
+      <td>Comment out <code>&lt;validate-jwt&gt;</code> temporarily for portal testing, or test via <code>curl</code> with a real token</td>
+    </tr>
+    <tr>
+      <td><code>OIDC discovery failed (HTTP 404)</code> in Claude Desktop</td>
+      <td>Pasted the metadata URL into <strong>Issuer URL</strong></td>
+      <td>Issuer must end at <code>/v2.0</code>, not at <code>/.well-known/openid-configuration</code></td>
+    </tr>
+    <tr>
+      <td><code>Token exchange failed (HTTP 401)</code></td>
+      <td>App registered under <strong>Web</strong> platform instead of <strong>Mobile and desktop applications</strong></td>
+      <td>Create a new app with the right platform — it can't be changed</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2>Where this leaves us</h2>
+<ul>
+  <li>Every Claude Desktop user authenticates against <strong>Entra ID</strong> in their browser, just like Office or Teams. MFA and Conditional Access policies apply automatically.</li>
+  <li>The <strong>Foundry API key</strong> lives only inside APIM as a secret Named value. It's never on a developer laptop.</li>
+  <li>APIM logs carry the user's Entra <code>oid</code> claim, which I'll use next to build per-user dashboards and token-bucket quotas (<code>llm-token-limit</code> keyed off <code>oid</code>).</li>
+  <li>If we ever want to remove the API key entirely, the same setup switches to APIM <strong>system-assigned managed identity</strong> with <code>&lt;authentication-managed-identity resource="https://ai.azure.com" /&gt;</code> plus two RBAC role assignments on the Foundry account (<code>Azure AI User</code> + <code>Cognitive Services User</code>). For now the key model is fine.</li>
+</ul>
+
+<hr />
+
+<h2>What I'd add next</h2>
+<ul>
+  <li><strong><code>llm-token-limit</code></strong> and <strong><code>llm-emit-token-metric</code></strong> policies for per-user quotas and cost visibility.</li>
+  <li><strong>App Insights</strong> wiring on the API, with a workbook that pivots on the <code>oid</code> claim.</li>
+  <li><strong>Assignment required = Yes</strong> on the Entra Enterprise Application + a security group, so only approved users can sign in.</li>
+  <li><strong>Intune deployment</strong> of the exported <code>.reg</code> / <code>.mobileconfig</code> so the gateway URL and client ID land on devices automatically.</li>
+</ul>
+
+<p>But that's all incremental. The hard part — getting Claude Desktop, Entra ID, APIM, and Foundry to agree on who's allowed to talk to whom — is done. Total elapsed: about an afternoon, most of it spent learning where each portal hides its switches.</p>
+
+<hr />
+
+<h2>Useful links</h2>
+<ul>
+  <li><a href="https://claude.com/docs/cowork/3p/gateway-sso">Gateway single sign-on with your identity provider — Claude.ai Documentation</a></li>
+  <li><a href="https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/configure-claude-desktop">Configure Claude Desktop with Foundry Models — Microsoft Learn</a></li>
+</ul>
+
+</article>
+</body>
+</html>

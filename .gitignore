@@ -1,0 +1,12 @@
+# Local secrets — never commit
+.env
+.env.local
+.env.*.local
+
+# Keep the template
+!.env.example
+
+# Common cruft
+.vscode/
+*.log
+*.tmp
