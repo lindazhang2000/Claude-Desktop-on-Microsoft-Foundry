@@ -1,4 +1,4 @@
-# Enterprise Secure Claude Desktop with Entra ID, APIM, and Microsoft Foundry (No Backend Required)
+# Enterprise-ready Claude Desktop with Entra ID, APIM, and Microsoft Foundry (No Backend Required)
 
 *How I put corporate sign-in in front of Claude Desktop without writing a single line of backend code.*
 
