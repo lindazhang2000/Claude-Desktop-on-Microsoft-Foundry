@@ -1,4 +1,4 @@
-# Bringing Claude Desktop to Your Enterprise with Entra ID SSO, Azure API Management, and Microsoft Foundry
+# Enterprise-enabling Claude Desktop with Entra ID, APIM, and Microsoft Foundry (No Backend Required)
 
 *How I put corporate sign-in in front of Claude Desktop without writing a single line of backend code.*
 
