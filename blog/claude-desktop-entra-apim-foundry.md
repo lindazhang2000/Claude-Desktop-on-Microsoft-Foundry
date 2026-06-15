@@ -4,6 +4,11 @@
 
 **TL;DR —** In this post, I show how to securely enable Claude Desktop in enterprise environments using Microsoft Entra ID, Azure API Management, and Microsoft Foundry — without deploying a custom backend. This approach removes API keys from endpoints, enforces per-user identity, and aligns fully with Zero Trust principles.
 
+**Who this is for:**
+- Enterprise architects evaluating secure AI client patterns
+- Developers enabling Claude Desktop in regulated environments
+- Platform teams standardizing identity and governance for LLM access
+
 ![Claude Desktop chatting against the enterprise gateway, with the model picker showing the Foundry deployment](images/desktop%20chat.png)
 
 > **Why this post exists:** Microsoft Learn's [Configure Claude Desktop with Foundry Models](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/configure-claude-desktop) only shows the **API-key** path — a shared key pasted into every user's Claude Desktop config. That's fine for a quick demo, but it's a non-starter for most enterprises (no per-user identity, no MFA / Conditional Access, hard to revoke, hard to audit). This post fills that gap: same Foundry backend, but with **Microsoft Entra ID SSO** in front via Azure API Management, so each user signs in with their corporate identity and zero secrets land on the laptop.
