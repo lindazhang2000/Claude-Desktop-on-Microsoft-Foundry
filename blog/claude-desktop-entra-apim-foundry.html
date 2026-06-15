@@ -438,7 +438,7 @@ Body:
   <li>Every Claude Desktop user authenticates against <strong>Entra ID</strong> in their browser, just like Office or Teams. MFA and Conditional Access policies apply automatically.</li>
   <li>The <strong>Foundry API key</strong> lives only inside APIM as a secret Named value. It's never on a developer laptop.</li>
   <li>APIM logs carry the user's Entra <code>oid</code> claim, which I'll use next to build per-user dashboards and token-bucket quotas (<code>llm-token-limit</code> keyed off <code>oid</code>).</li>
-  <li>If we ever want to remove the API key entirely, the same setup switches to APIM <strong>system-assigned managed identity</strong> with <code>&lt;authentication-managed-identity resource="https://ai.azure.com" /&gt;</code> plus two RBAC role assignments on the Foundry account (<code>Azure AI User</code> + <code>Cognitive Services User</code>). For now the key model is fine.</li>
+  <li>If we ever want to remove the API key entirely, the same setup switches to APIM <strong>system-assigned managed identity</strong> with <code>&lt;authentication-managed-identity resource="https://cognitiveservices.azure.com" /&gt;</code> plus a single RBAC assignment on the Foundry account: the <strong>Foundry User</strong> role (role ID <code>53ca6127-db72-4b80-b1b0-d745d6d5456d</code>, formerly <em>Azure AI User</em>). See the <a href="https://learn.microsoft.com/en-us/azure/foundry/concepts/rbac-foundry?tabs=owner">Foundry RBAC doc</a> — don't use any <code>Cognitive Services *</code> roles for Foundry. For now the key model is fine.</li>
 </ul>
 
 <hr />
