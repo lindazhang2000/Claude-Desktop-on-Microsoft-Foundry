@@ -21,7 +21,7 @@ If your team wants to use **Claude Desktop** with your own Anthropic deployment 
 3. **MFA and Conditional Access** must apply, the same way they do for every other internal app.
 4. **Central rate-limiting and logging** — a centralized control plane for governance.
 
-Claude Desktop 1.5+ supports a "Gateway SSO" mode where it can sign each user in with OpenID Connect and forward their token to a custom LLM gateway. Azure API Management (APIM) is a perfect fit for that gateway role: it validates the user's Entra ID token, then re-authenticates itself to Foundry behind the scenes.
+Claude Desktop 1.5+ supports a "Gateway SSO" mode where it can sign each user in with OpenID Connect and forward their token to a custom LLM gateway. Azure API Management (APIM) is a perfect fit for that gateway role: it validates the user's Entra ID token, then re-authenticates itself to Foundry behind the scenes. **APIM acts as a centralized policy enforcement layer, enabling identity validation, traffic governance, and secure re-authentication to backend AI services without custom code.**
 
 The end-to-end flow looks like this:
 
