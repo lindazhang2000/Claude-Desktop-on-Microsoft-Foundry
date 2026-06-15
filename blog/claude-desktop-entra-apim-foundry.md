@@ -341,3 +341,4 @@ But that's all incremental. The hard part — getting Claude Desktop, Entra ID, 
 
 - [Gateway single sign-on with your identity provider — Claude.ai Documentation](https://claude.com/docs/cowork/3p/gateway-sso)
 - [Configure Claude Desktop with Foundry Models — Microsoft Learn](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/configure-claude-desktop)
+- [Role-based access control for Microsoft Foundry — Microsoft Learn](https://learn.microsoft.com/en-us/azure/foundry/concepts/rbac-foundry?tabs=owner)
