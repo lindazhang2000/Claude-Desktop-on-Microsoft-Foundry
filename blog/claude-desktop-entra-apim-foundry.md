@@ -149,6 +149,17 @@ APIM → **Named values → + Add**:
 
 This is the only place the key ever lives. Clients never see it.
 
+> **Alternative — keyless with Entra ID (managed identity):** If you prefer not to manage a Foundry key at all, enable the APIM instance's **system-assigned managed identity** (APIM → *Identity → System assigned → On*), then grant that identity the **Foundry User** role on the Foundry account (role ID `53ca6127-db72-4b80-b1b0-d745d6d5456d` — previously named *Azure AI User*; Microsoft renamed it but the ID and permissions are unchanged). In Step 4, replace the `set-header` that injects `x-api-key` with:
+>
+> ```xml
+> <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="foundry-token" />
+> <set-header name="Authorization" exists-action="override">
+>   <value>@("Bearer " + (string)context.Variables["foundry-token"])</value>
+> </set-header>
+> ```
+>
+> Then you can skip the `foundry-key` Named value entirely. Don't use the legacy `Cognitive Services User` role — per the Foundry RBAC doc, roles starting with *Cognitive Services* don't apply to Foundry scenarios.
+
 ---
 
 ## Step 4 — Write the gateway policy

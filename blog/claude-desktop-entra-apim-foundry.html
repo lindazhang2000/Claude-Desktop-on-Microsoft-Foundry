@@ -252,6 +252,15 @@ az apim nv create -g $ResourceGroup --service-name $ApimName `
 </ul>
 <p>This is the only place the key ever lives. Clients never see it.</p>
 
+<blockquote>
+  <p><strong>Alternative — keyless with Entra ID (managed identity):</strong> If you prefer not to manage a Foundry key at all, enable the APIM instance's <strong>system-assigned managed identity</strong> (APIM → <em>Identity → System assigned → On</em>), then grant that identity the <strong>Foundry User</strong> role on the Foundry account (role ID <code>53ca6127-db72-4b80-b1b0-d745d6d5456d</code> — previously named <em>Azure AI User</em>; Microsoft renamed it but the ID and permissions are unchanged). In Step 4, replace the <code>set-header</code> that injects <code>x-api-key</code> with:</p>
+<pre><code>&lt;authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="foundry-token" /&gt;
+&lt;set-header name="Authorization" exists-action="override"&gt;
+  &lt;value&gt;@("Bearer " + (string)context.Variables["foundry-token"])&lt;/value&gt;
+&lt;/set-header&gt;</code></pre>
+  <p>Then you can skip the <code>foundry-key</code> Named value entirely. Don't use the legacy <code>Cognitive Services User</code> role — per the Foundry RBAC doc, roles starting with <em>Cognitive Services</em> don't apply to Foundry scenarios.</p>
+</blockquote>
+
 <hr />
 
 <h2>Step 4 — Write the gateway policy</h2>
