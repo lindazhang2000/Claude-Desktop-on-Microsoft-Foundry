@@ -2,6 +2,37 @@
 
 Reference setup that puts **Azure API Management** in front of an **Anthropic Claude** deployment running on **Microsoft Foundry**, with **Entra ID single sign-on** for Claude Desktop users.
 
+## Architecture
+
+```mermaid
+%%{init: {'flowchart': {'nodeSpacing': 60, 'rankSpacing': 80, 'useMaxWidth': true}, 'themeVariables': {'fontSize':'15px'}} }%%
+flowchart TB
+    User([👤 Corporate user])
+    Claude["🖥️ Claude Desktop<br/>(Gateway SSO)"]
+    Entra["🔑 Microsoft Entra ID<br/>OIDC · MFA · Conditional Access"]
+    APIM["🛡️ Azure API Management<br/>validate-jwt → set-backend-service<br/>+ x-api-key injection"]
+    NV[("🔐 APIM Named values<br/>entra-tenant-id · entra-client-id<br/>foundry-key")]
+    Foundry["🧠 Microsoft Foundry<br/>/anthropic · Claude deployment"]
+
+    User -- "1 Sign in (browser PKCE)" --> Entra
+    Entra -- "2 ID token" --> Claude
+    Claude -- "3 POST /v1/messages<br/>Authorization: Bearer &lt;ID token&gt;" --> APIM
+    APIM -- "4 OIDC discovery / JWKS" --> Entra
+    APIM -. "reads" .-> NV
+    APIM -- "5 x-api-key (or Managed Identity)" --> Foundry
+    Foundry -- "6 Response" --> APIM
+    APIM -- "7 Response" --> Claude
+
+    classDef azure fill:#0a4d8c,stroke:#0a3a6b,color:#ffffff;
+    classDef client fill:#f3f3f3,stroke:#888,color:#222;
+    classDef store  fill:#fff7d6,stroke:#c79a00,color:#222;
+    class Entra,APIM,Foundry azure;
+    class Claude,User client;
+    class NV store;
+```
+
+In short:
+
 ```
 Claude Desktop  ──Entra ID bearer──▶  APIM  ──x-api-key──▶  Foundry /anthropic
    (per-user OIDC sign-in)         (validate-jwt)        (Claude model)
